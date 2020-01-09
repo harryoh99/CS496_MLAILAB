@@ -39,7 +39,7 @@ class Net(nn.Module):
 net = Net()
 criterion = nn.MSELoss()
 learning_rate = 0.01
-iter_num=10
+iter_num=100
 for idx in range(iter_num):
     for i in range(year1_train_x.shape[0]):
         input = year1_train_x[i]
@@ -53,12 +53,13 @@ for idx in range(iter_num):
             f.data.sub_(f.grad.data * learning_rate)
 
 #Testing period
-loss_list = []
+loss_sum = 0
+loss_sum2 = 0
 for i in range(year1_test_x.shape[0]):
     input = year1_test_x[i]
     output = net(input)
     if(year1_test_y[i]==0):
         continue
-    loss = torch.abs(output-year1_test_y[i])/year1_test_y[i]
-    loss_list.append(loss)
-print(torch.sum(loss_list))
+    loss_sum += torch.abs(output-year1_test_y[i])/year1_test_y[i]
+    loss_sum2 +=  criterion(output,year1_test_y[i])
+print(loss_sum, loss_sum2)
