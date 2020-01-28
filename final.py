@@ -46,7 +46,7 @@ def criterion2(output, target):
 
 
 def apply_dropout(m):
-    if type(m)==nn.Dropout():
+    if type(m)==nn.Dropout:
         m.train()
 def main(xpath, ypath):
     # Model
@@ -134,7 +134,7 @@ def main(xpath, ypath):
         training2_dropout_loss.append([epoch, round(loss.item(), 3)])
         training2_dropout_epoch_loss.append(round(loss.item(), 3))
 
-    """
+    
     #print("regular mode")
     model2.train()
     for epoch in range(num_epoch):
@@ -148,15 +148,15 @@ def main(xpath, ypath):
         training2_loss.append([epoch, round(loss.item(), 3)])
         training2_epoch_loss.append(round(loss.item(), 3))
         #print(epoch, loss)
-    """
-    #torch.save(model2, "crt2_model.pt")
+    
+    torch.save(model2, "crt2_model.pt")
     torch.save(model_dropout, "crt2_model_dropout.pt")
-    model_dropout = torch.load("crt2_model_dropout.pt")
-    #model2, model_dropout = load_model()
+    #model_dropout = torch.load("crt2_model_dropout.pt")
+    model2, model_dropout = load_model()
 
     # Tested with criterion 2
-    #loss_list = []
-    #loss_dlist = []
+    loss_list = []
+    loss_dlist = []
 
 
     
@@ -166,8 +166,9 @@ def main(xpath, ypath):
     model2.eval()
     model_dropout.apply(apply_dropout)
 
+
     with torch.no_grad():
-        for batch_index, (data,target) in enumerate (validation_loader):
+        for batch_index, (data, target) in enumerate(validation_loader):
             tmp_list = []
             for idx in range(100):
                 output_dropout = model_dropout(data)
@@ -176,38 +177,18 @@ def main(xpath, ypath):
             std = np.std(tmp_list)
             avg_list.append(avg)
             std_list.append(std)
-    
-    writer = SummaryWriter("./logs/check")
-    for idx in range(len(avg_list)):
-        writer.add_scalars(
-            "Mean and stdv of prediction",
-            {"Mean:": avg_list[idx], "Standard Deviation": std_list[idx]},
-            idx
-        )
-    writer.close()
-
-                
-                
-
-
-
-
-"""
-    with torch.no_grad():
-        for batch_index, (data, target) in enumerate(validation_loader):
             output2 = model2(data)  # Trained with criterion 2
-            output_dropout = model_dropout(data)
             loss22 = criterion2(
                 output2, target
             )  # Trainde with criterion 2, tested with 2
-            loss_dropout = criterion2(output_dropout, target)
+            loss_dropout = criterion2(avg, target)
             loss_list.append(loss22.item())
             loss_dlist.append(loss_dropout.item())
 
     loss_avg = np.average(loss_list)
     loss_dropout_avg = np.average(loss_dlist)
-"""
-"""
+
+
     # Write the average
     f = open("output.txt", "w")
     f.write("\nTraining Loss with criterion 2: \n")
@@ -219,8 +200,8 @@ def main(xpath, ypath):
     f.write("\nAverage loss of model trained with criterion 2 with dropout\n")
     f.write(str(loss_dropout_avg))
     f.close()
-"""
-"""
+
+
     writer = SummaryWriter("./logs/check")
     for idx in range(len(loss_list)):
         writer.add_scalars(
@@ -238,9 +219,14 @@ def main(xpath, ypath):
             },
             idx,
         )
-
+    for idx in range(len(avg_list)):
+        writer.add_scalars(
+            "Mean and stdv of prediction",
+            {"Mean:": avg_list[idx], "Standard Deviation": std_list[idx]},
+            idx
+        )
     writer.close()
-"""
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
