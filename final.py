@@ -7,10 +7,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.tensorboard import SummaryWriter
+from sklearn.isotonic import IsotonicRegression as IS
 
-# os.chdir("/Users/jiooh/Documents/Jio/KAIST/2-2/개별연구/Data_Calibration")
+os.chdir("/Users/jiooh/Documents/Jio/KAIST/2-2/개별연구/Data_Calibration")
 
 
 class REData(Dataset):
@@ -29,10 +29,7 @@ class REData(Dataset):
 
 
     
-def load_model():
-    model2 = torch.load("crt2_model.pt")
-    model_dropout = torch.load("crt2_model_dropout.pt")
-    return model2, model_dropout
+
 
 
 # 63560, 15, 667 for x
@@ -50,15 +47,6 @@ def apply_dropout(m):
         m.train()
 def main(xpath, ypath):
     # Model
-    model2 = nn.Sequential(
-        nn.Linear(667, 300),
-        nn.ReLU(),
-        nn.Linear(300, 100),
-        nn.ReLU(),
-        nn.Linear(100, 20),
-        nn.ReLU(),
-        nn.Linear(20, 1),
-    )
 
     model_dropout = nn.Sequential(
         nn.Linear(667, 300),
@@ -109,13 +97,9 @@ def main(xpath, ypath):
 
     learning_rate = 0.01
     optimizer_dropout = optim.Adam(model_dropout.parameters(), lr=learning_rate)
-    optimizer2 = optim.Adam(model2.parameters(), lr=learning_rate)
     num_epoch = 50
 
-    # Training loss saved here
 
-    training2_loss = []
-    training2_epoch_loss = []
 
     training2_dropout_loss = []
     training2_dropout_epoch_loss = []
@@ -134,28 +118,9 @@ def main(xpath, ypath):
         training2_dropout_loss.append([epoch, round(loss.item(), 3)])
         training2_dropout_epoch_loss.append(round(loss.item(), 3))
 
-    
-    #print("regular mode")
-    model2.train()
-    for epoch in range(num_epoch):
-        # Training
-        for batch_index, (data, target) in enumerate(train_loader):
-            optimizer2.zero_grad()
-            output = model2(data)
-            loss = criterion2(output, target)
-            loss.backward()
-            optimizer2.step()
-        training2_loss.append([epoch, round(loss.item(), 3)])
-        training2_epoch_loss.append(round(loss.item(), 3))
-        #print(epoch, loss)
-    
-    torch.save(model2, "crt2_model.pt")
-    torch.save(model_dropout, "crt2_model_dropout.pt")
-    #model_dropout = torch.load("crt2_model_dropout.pt")
-    model2, model_dropout = load_model()
 
-    # Tested with criterion 2
-    loss_list = []
+    torch.save(model_dropout, "crt2_model_dropout.pt")
+    model_dropout = torch.load("crt2_model_dropout.pt")
     loss_dlist = []
 
 
@@ -163,62 +128,59 @@ def main(xpath, ypath):
     avg_list =[]
     std_list =[]
     model_dropout.eval()
-    model2.eval()
     model_dropout.apply(apply_dropout)
 
-
     with torch.no_grad():
+        isr =IS()
+        x_list=[]
+        y_list = []
         for batch_index, (data, target) in enumerate(validation_loader):
             tmp_list = []
+
             for idx in range(100):
                 output_dropout = model_dropout(data)
                 tmp_list.append(output_dropout)
             avg = np.average(tmp_list)
             std = np.std(tmp_list)
+            yhat = torch.distributions.Normal(avg,std)
+            for idx in range(len(tmp_list)):
+                cdf = yhat.cdf(tmp_list[idx])
+                x_list.append(cdf)
+            for i in range(len(x_list)):
+                cdf = x_list[i]
+                cnt = 0
+                for j in range(len(x_list)){
+                    if(x_list[j]<=cdf):
+                        cnt+=1
+                }
+                y_list.append(cnt/len(x_list))
             avg_list.append(avg)
             std_list.append(std)
-            output2 = model2(data)  # Trained with criterion 2
-            loss22 = criterion2(
-                output2, target
-            )  # Trainde with criterion 2, tested with 2
             loss_dropout = criterion2(avg, target)
-            loss_list.append(loss22.item())
             loss_dlist.append(loss_dropout.item())
+        isr.fit_transform(x_list,y_list)
 
-    loss_avg = np.average(loss_list)
     loss_dropout_avg = np.average(loss_dlist)
-
-
-    # Write the average
     f = open("output.txt", "w")
-    f.write("\nTraining Loss with criterion 2: \n")
-    f.write(" ".join(training2_loss.__str__()))
     f.write("\nTraining Loss with criterion 2 with dropout: \n")
     f.write(" ".join(training2_dropout_loss.__str__()))
-    f.write("\nAverage loss of model trained with criterion 2\n")
-    f.write(str(loss_avg))
     f.write("\nAverage loss of model trained with criterion 2 with dropout\n")
     f.write(str(loss_dropout_avg))
+    f.write("\nWithin First Stdv \n")
+    f.write(" ".join(p1_list.__str__()))
+    f.write("\nWithin second Stdv \n")
+    f.write(" ".join(p2_list.__str__()))
+
+    f.write("\n Avg_list: \n")
+    f.write(" ".join(avg_list.__str__()))
+
+    f.write("\n std_list: \n")
+    f.write(" ".join(std_list.__str__()))
     f.close()
 
 
-    writer = SummaryWriter("./logs/check")
-    for idx in range(len(loss_list)):
-        writer.add_scalars(
-            "test result",
-            {"without dropout:": loss_list[idx], "with dropout: ": loss_dlist[idx]},
-            idx,
-        )
-
-    for idx in range(len(training2_epoch_loss)):
-        writer.add_scalars(
-            "training result for each epoch",
-            {
-                "without dropout": training2_epoch_loss[idx],
-                "with dropout": training2_dropout_epoch_loss[idx],
-            },
-            idx,
-        )
+    #SUMMARY WRITER
+    writer = SummaryWriter("./logs")
     for idx in range(len(avg_list)):
         writer.add_scalars(
             "Mean and stdv of prediction",
