@@ -146,19 +146,19 @@ def main(xpath, ypath):
             for idx in range(len(tmp_list)):
                 cdf = yhat.cdf(tmp_list[idx])
                 x_list.append(cdf)
-            for i in range(len(x_list)):
-                cdf = x_list[i]
-                cnt = 0
-                for j in range(len(x_list)){
-                    if(x_list[j]<=cdf):
-                        cnt+=1
-                }
-                y_list.append(cnt/len(x_list))
             avg_list.append(avg)
             std_list.append(std)
             loss_dropout = criterion2(avg, target)
             loss_dlist.append(loss_dropout.item())
+        for i in range(len(x_list)):
+                cdf = x_list[i]
+                cnt = 0
+                for j in range(len(x_list)):
+                    if(x_list[j]<=cdf):
+                        cnt+=1
+                y_list.append(cnt/len(x_list))
         isr.fit_transform(x_list,y_list)
+        yhat_mod = isr.predict(x_list)
 
     loss_dropout_avg = np.average(loss_dlist)
     f = open("output.txt", "w")
