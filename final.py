@@ -45,6 +45,25 @@ def criterion2(output, target):
 def apply_dropout(m):
     if type(m)==nn.Dropout:
         m.train()
+
+def getErr(x_list,):
+    p=0.1
+    err_list = []
+    err = 0
+    while(p<=1):
+        count = 0
+        phat = 0
+        for i in range(len(x_list)):
+            if(x_list[i]<=p):
+                count +=1
+        phat = count/len(x_list)
+        err_list.append([p,phat])
+        p+=0.1
+    #weight is proportional to the phat, so just define weight as phat
+    for i in range(len(err_list)):
+        err += err_list[1]*(err_list[0]-err_list[1])*(err_list[0]-err_list[1])
+    return err
+        
 def main(xpath, ypath):
     # Model
 
@@ -134,9 +153,9 @@ def main(xpath, ypath):
         isr =IS()
         x_list=[]
         y_list = []
+        
         for batch_index, (data, target) in enumerate(validation_loader):
             tmp_list = []
-
             for idx in range(100):
                 output_dropout = model_dropout(data)
                 tmp_list.append(output_dropout)
@@ -157,8 +176,13 @@ def main(xpath, ypath):
                     if(x_list[j]<=cdf):
                         cnt+=1
                 y_list.append(cnt/len(x_list))
+        err_before = getErr(y_list)
+        #isotonic regression here
         isr.fit_transform(x_list,y_list)
         yhat_mod = isr.predict(x_list)
+        err_after = getErr(yhat_mod)
+        #error calculation
+        #Assume that the confidence levels will be 0.1, 0.2 ,0.3, 0.4,....
 
     loss_dropout_avg = np.average(loss_dlist)
     f = open("output.txt", "w")
